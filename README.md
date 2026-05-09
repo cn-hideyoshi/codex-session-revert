@@ -1,6 +1,6 @@
 # codex-session-revert
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
 `codex-session-revert` is a small CLI for updating Codex session JSONL files so their `model_provider` matches the provider configured in `~/.codex/config.toml`.
 

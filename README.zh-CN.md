@@ -1,6 +1,6 @@
 # codex-session-revert
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](README.md) | **简体中文**
 
 `codex-session-revert` 是一个用于批量修正 Codex 会话 JSONL 文件中 `model_provider` 的命令行工具。
 
