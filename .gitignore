@@ -1,0 +1,21 @@
+# Build outputs
+/codex-session-revert
+/main
+/build/
+/dist/
+
+# Go
+*.test
+*.prof
+coverage.out
+
+# Local environment
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.log
