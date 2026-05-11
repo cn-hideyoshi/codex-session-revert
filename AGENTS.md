@@ -93,3 +93,23 @@ codex-session-revert revert --provider openai
 - 对用户数据的修改必须保守；无法解析的 JSONL 行应报告并跳过或中止，不能静默破坏。
 - 路径中的 `~` 应按当前用户 home 目录展开。
 - model_provider 字段只修改明确存在于会话 JSON 对象中的 model_provider 配置，不应无关改写其他字段。
+
+## 提交约定
+
+- Git 提交信息必须使用 Conventional Commits 风格：
+
+```text
+type(scope): subject
+```
+
+- 示例：
+
+```text
+feat(cli): add restore command
+refactor(app): split app package files
+docs(readme): mark active language
+```
+
+- `type` 优先使用 `feat`、`fix`、`refactor`、`docs`、`test`、`ci`、`chore`。
+- `scope` 使用小写英文，描述影响范围，例如 `cli`、`app`、`readme`、`workflow`。
+- `subject` 使用简短英文描述，不以句号结尾。
