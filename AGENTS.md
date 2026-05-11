@@ -18,12 +18,22 @@ model_provider，则默认使用：
 openai
 ```
 
+同时，程序会处理固定的 SQLite 状态库：
+
+```text
+~/.codex/state_5.sqlite
+```
+
+需要同步更新其中 `main.threads.model_provider`。
+
 ## 安全要求
 
 - 修改任何 `.jsonl` 会话文件前，必须先自动创建备份。
 - 备份完成后，命令行必须输出本次备份名，方便用户后续恢复。
 - 恢复备份时不得猜测备份名；应使用用户指定的备份，或在交互/文档中明确可用备份。
 - 默认只处理 `~/.codex/sessions/*/*/*/*.jsonl` 范围内的文件。
+- 默认只处理固定的 `~/.codex/state_5.sqlite` 状态库，不兼容其他状态库文件名。
+- SQLite 状态库处理可依赖系统 `sqlite3` 命令。
 - 解析和写入 `.jsonl` 时应保持逐行 JSONL 语义：一行一个 JSON 对象，不能把文件整体改写成 JSON 数组。
 
 ## 命令行
@@ -35,6 +45,7 @@ openai
 行为要求：
 
 - 扫描 `~/.codex/sessions/*/*/*/*.jsonl`。
+- 若 `~/.codex/state_5.sqlite` 存在，也应保存 SQLite 一致性备份。
 - 保存可恢复的备份。
 - 完成后输出备份名。
 - 不修改 model_provider。
@@ -48,6 +59,7 @@ openai
 - 执行前自动备份，并输出备份名。
 - 默认读取 `~/.codex/config.toml` 中的 model_provider。
 - 若配置中没有 model_provider，则使用默认值 `openai`。
+- 同步更新 JSONL 会话和 `main.threads.model_provider`。
 - 支持手动传参覆盖目标 model_provider：
 
 ```bash
@@ -61,6 +73,7 @@ codex-session-revert revert --provider openai
 行为要求：
 
 - 将指定备份恢复到 `~/.codex/sessions/*/*/*/*.jsonl`。
+- 若备份包含 `state_5.sqlite`，同步恢复该 SQLite 状态库。
 - 恢复前应校验备份存在且结构有效。
 - 恢复完成后输出恢复的备份名和影响的文件数量。
 - 命令行可接受唯一备份名前缀，避免用户输入过长备份名。
@@ -74,6 +87,7 @@ codex-session-revert revert --provider openai
 - 统计匹配到的 `.jsonl` 文件数量。
 - 检查 JSONL 是否可逐行解析。
 - 汇总当前发现的 model_provider 分布。
+- 汇总 `main.threads.model_provider` 分布。
 - 显示 `~/.codex/config.toml` 中的目标 model_provider；若未配置，则显示默认值 `openai`。
 
 ### `clean`
@@ -93,6 +107,7 @@ codex-session-revert revert --provider openai
 - 对用户数据的修改必须保守；无法解析的 JSONL 行应报告并跳过或中止，不能静默破坏。
 - 路径中的 `~` 应按当前用户 home 目录展开。
 - model_provider 字段只修改明确存在于会话 JSON 对象中的 model_provider 配置，不应无关改写其他字段。
+- SQLite 修改仅限 `~/.codex/state_5.sqlite` 的 `main.threads.model_provider`。
 
 ## 提交约定
 

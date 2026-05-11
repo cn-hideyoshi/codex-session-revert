@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -130,6 +131,47 @@ func TestBackupRevertRestoreAndStatus(t *testing.T) {
 	}
 }
 
+func TestRevertBacksUpUpdatesAndRestoresSQLiteState(t *testing.T) {
+	requireSQLite(t)
+	home := t.TempDir()
+	app := testApp(home)
+	writeFile(t, filepath.Join(home, ".codex", "config.toml"), `model_provider = "target"`+"\n")
+	session := filepath.Join(home, ".codex", "sessions", "2026", "05", "10", "session.jsonl")
+	writeFile(t, session, `{"model_provider":"old"}`+"\n")
+	createStateDB(t, app.StatePath(), map[string]string{"thread-1": "old", "thread-2": "target"})
+
+	var out bytes.Buffer
+	app.Out = &out
+	if err := app.Run([]string{"status"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "SQLite threads: 2") || !strings.Contains(out.String(), "- old: 1") {
+		t.Fatalf("unexpected status output:\n%s", out.String())
+	}
+
+	out.Reset()
+	if err := app.Run([]string{"revert"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "model_provider fields updated: 2") {
+		t.Fatalf("unexpected revert output:\n%s", out.String())
+	}
+	if got := stateProviders(t, app.StatePath()); got != "target:2" {
+		t.Fatalf("sqlite providers=%s", got)
+	}
+
+	out.Reset()
+	if err := app.Run([]string{"restore", "20260510"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Files restored: 2") {
+		t.Fatalf("unexpected restore output:\n%s", out.String())
+	}
+	if got := stateProviders(t, app.StatePath()); got != "old:1,target:1" {
+		t.Fatalf("restored sqlite providers=%s", got)
+	}
+}
+
 func TestRestoreAcceptsUniquePrefixAndDetectsAmbiguity(t *testing.T) {
 	home := t.TempDir()
 	app := testApp(home)
@@ -210,4 +252,62 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func requireSQLite(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("sqlite3"); err != nil {
+		t.Skip("sqlite3 is not available")
+	}
+}
+
+func createStateDB(t *testing.T, path string, rows map[string]string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := runTestSQLite(path, `CREATE TABLE threads (id TEXT PRIMARY KEY, model_provider TEXT NOT NULL);`); err != nil {
+		t.Fatal(err)
+	}
+	for id, provider := range rows {
+		sql := `INSERT INTO threads (id, model_provider) VALUES (` + sqlString(id) + `, ` + sqlString(provider) + `);`
+		if err := runTestSQLite(path, sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func stateProviders(t *testing.T, path string) string {
+	t.Helper()
+	cmd := exec.Command("sqlite3", "-batch", path, `SELECT model_provider || ':' || COUNT(*) FROM threads GROUP BY model_provider ORDER BY model_provider;`)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("sqlite3 query failed: %v: %s", err, out)
+	}
+	return strings.Join(nonEmptyLines(string(out)), ",")
+}
+
+func runTestSQLite(path, sql string) error {
+	cmd := exec.Command("sqlite3", "-batch", path, sql)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return errWithOutput(err, out)
+	}
+	return nil
+}
+
+func errWithOutput(err error, out []byte) error {
+	if len(out) == 0 {
+		return err
+	}
+	return &sqliteTestError{err: err, out: strings.TrimSpace(string(out))}
+}
+
+type sqliteTestError struct {
+	err error
+	out string
+}
+
+func (e *sqliteTestError) Error() string {
+	return e.err.Error() + ": " + e.out
 }

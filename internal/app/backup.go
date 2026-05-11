@@ -15,6 +15,7 @@ type BackupManifest struct {
 	CreatedAt  string       `json:"created_at"`
 	SessionDir string       `json:"session_dir"`
 	Files      []BackupFile `json:"files"`
+	StateFile  *BackupFile  `json:"state_file,omitempty"`
 }
 
 type BackupFile struct {
@@ -61,10 +62,21 @@ func (a *App) Backup() (string, int, error) {
 		}
 		manifest.Files = append(manifest.Files, BackupFile{RelativePath: filepath.ToSlash(rel), Size: info.Size()})
 	}
+	stateFile, err := a.BackupState(destRoot)
+	if err != nil {
+		return "", 0, err
+	}
+	if stateFile != nil {
+		manifest.StateFile = stateFile
+	}
 	if err := writeJSONFile(filepath.Join(destRoot, "manifest.json"), manifest, 0o600); err != nil {
 		return "", 0, fmt.Errorf("write backup manifest: %w", err)
 	}
-	return name, len(files), nil
+	count := len(files)
+	if manifest.StateFile != nil {
+		count++
+	}
+	return name, count, nil
 }
 
 func (a *App) nextBackupName() (string, error) {
@@ -152,6 +164,19 @@ func (a *App) Restore(name string) (string, int, error) {
 			return "", 0, fmt.Errorf("backup file %q is a directory", file.RelativePath)
 		}
 	}
+	if manifest.StateFile != nil {
+		if manifest.StateFile.RelativePath != "state_5.sqlite" {
+			return "", 0, fmt.Errorf("invalid state backup path %q", manifest.StateFile.RelativePath)
+		}
+		src := filepath.Join(root, "files", manifest.StateFile.RelativePath)
+		info, err := os.Stat(src)
+		if err != nil {
+			return "", 0, fmt.Errorf("state backup file missing: %w", err)
+		}
+		if info.IsDir() {
+			return "", 0, errors.New("state backup file is a directory")
+		}
+	}
 
 	count := 0
 	for _, file := range manifest.Files {
@@ -164,6 +189,12 @@ func (a *App) Restore(name string) (string, int, error) {
 		}
 		if err := copyFile(src, dst, info.Mode().Perm()); err != nil {
 			return resolvedName, count, fmt.Errorf("restore %q: %w", file.RelativePath, err)
+		}
+		count++
+	}
+	if manifest.StateFile != nil {
+		if err := a.RestoreState(root, manifest.StateFile); err != nil {
+			return resolvedName, count, err
 		}
 		count++
 	}

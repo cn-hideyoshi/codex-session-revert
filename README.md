@@ -8,6 +8,7 @@ It targets only:
 
 ```text
 ~/.codex/sessions/*/*/*/*.jsonl
+~/.codex/state_5.sqlite
 ```
 
 Before changing any session file, `revert` always creates a restorable backup.
@@ -25,6 +26,8 @@ Run tests:
 ```bash
 go test ./...
 ```
+
+Runtime requirement: `sqlite3` must be available on `PATH` when `~/.codex/state_5.sqlite` exists.
 
 ## Commands
 
@@ -52,7 +55,7 @@ Control concurrent file workers:
 codex-session-revert revert --provider openai --workers 4
 ```
 
-Show JSONL validity, file counts, and discovered `model_provider` values:
+Show JSONL validity, file counts, SQLite thread status, and discovered `model_provider` values:
 
 ```bash
 codex-session-revert status
@@ -95,6 +98,7 @@ Backups are stored under:
 ```
 
 Each backup includes a `manifest.json` and a copy of the matched session files using paths relative to `~/.codex/sessions`.
+If `~/.codex/state_5.sqlite` exists, the backup also includes a consistent SQLite copy created with SQLite's backup command.
 
 ## Safety
 
@@ -102,6 +106,7 @@ Each backup includes a `manifest.json` and a copy of the matched session files u
 - JSONL is parsed line by line and kept as JSONL, not rewritten as a JSON array.
 - If any matched file has invalid JSONL, no session file is modified.
 - Only `model_provider` fields at the top level or under `payload.model_provider` are updated.
+- SQLite updates are limited to `main.threads.model_provider` in `~/.codex/state_5.sqlite`.
 - Text content containing the words `model_provider` is not modified.
 - File scanning and parsing run with concurrent workers, but writes happen only after validation succeeds.
 

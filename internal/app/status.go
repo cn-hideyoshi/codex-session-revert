@@ -20,6 +20,10 @@ func (a *App) Status() error {
 	if err != nil {
 		return err
 	}
+	stateStatus, err := a.StateProviderStatus()
+	if err != nil {
+		return err
+	}
 
 	source := "default"
 	if configured {
@@ -37,17 +41,36 @@ func (a *App) Status() error {
 	}
 	fmt.Fprintf(a.Out, "Target model_provider: %s (%s)\n", provider, source)
 	fmt.Fprintln(a.Out, "Model provider distribution:")
+	keys := make([]string, 0, len(distribution))
 	if len(distribution) == 0 {
+		fmt.Fprintln(a.Out, "- <none>: 0")
+	} else {
+		for k := range distribution {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(a.Out, "- %s: %d\n", k, distribution[k])
+		}
+	}
+	if !stateStatus.Exists {
+		fmt.Fprintln(a.Out, "State database: missing")
+		return nil
+	}
+	fmt.Fprintf(a.Out, "State database: %s\n", a.StatePath())
+	fmt.Fprintf(a.Out, "SQLite threads: %d\n", stateStatus.Rows)
+	fmt.Fprintln(a.Out, "SQLite model_provider distribution:")
+	if len(stateStatus.Distribution) == 0 {
 		fmt.Fprintln(a.Out, "- <none>: 0")
 		return nil
 	}
-	keys := make([]string, 0, len(distribution))
-	for k := range distribution {
+	keys = keys[:0]
+	for k := range stateStatus.Distribution {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprintf(a.Out, "- %s: %d\n", k, distribution[k])
+		fmt.Fprintf(a.Out, "- %s: %d\n", k, stateStatus.Distribution[k])
 	}
 	return nil
 }

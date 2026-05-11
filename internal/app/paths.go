@@ -18,6 +18,10 @@ func (a *App) ConfigPath() string {
 	return filepath.Join(a.Home, ".codex", "config.toml")
 }
 
+func (a *App) StatePath() string {
+	return filepath.Join(a.Home, ".codex", "state_5.sqlite")
+}
+
 func (a *App) SessionFiles() ([]string, error) {
 	pattern := filepath.Join(a.SessionRoot(), "*", "*", "*", "*.jsonl")
 	paths, err := filepath.Glob(pattern)

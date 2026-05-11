@@ -49,6 +49,12 @@ func (a *App) Revert(provider string) (string, int, int, error) {
 		return backupName, len(files), 0, formatLineProblems(problems, backupName)
 	}
 
+	stateChanged, err := a.UpdateStateProvider(provider)
+	if err != nil {
+		return backupName, len(files), totalChanged, err
+	}
+	totalChanged += stateChanged
+
 	for _, plan := range activePlans {
 		info, err := os.Stat(plan.Path)
 		if err != nil {
